@@ -3,9 +3,13 @@ import requests
 import agent
 import json
 from lxml import etree
+from redis import *
+import time
+
 
 class lagou_python():
     def __init__(self):
+        #主页报头
         self.headers = {
                 "Accept":"application/json, text/javascript, */*; q=0.01",
                 "Accept-Encoding":"gzip, deflate, br",
@@ -22,6 +26,7 @@ class lagou_python():
                 "X-Anit-Forge-Token":"None",
                 "X-Requested-With":"XMLHttpRequest"
             }
+        #职位报头
         self.headers2={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Encoding": "gzip, deflate, sdch, br",
@@ -36,12 +41,17 @@ class lagou_python():
             
             
         }
-        self.proxies = {"http":"http://1.82.216.134:80"}
+        self.proxies = {"http":"http://61.176.215.7:8080"}
+        
+        self.city = raw_input("输入城市")
+        self.position = raw_input("输入职位")
+        self.page = int(raw_input("输入页数"))
+    
     def spider_main(self):#对主页进行爬虫提取
         i = 1
-        while i<2:
-            formdata = {"first": "true", "pn": 1, "kd": "python"}
-            params = {"city": "北京", "needAddtionalResult": "false"}
+        while i <= self.page:
+            formdata = {"first": "true", "pn": str(i), "kd": self.position}
+            params = {"city": self.city, "needAddtionalResult": "false"}
             url = "http://www.lagou.com/jobs/positionAjax.json"
             #对主页进行post请求
             response = requests.post(url,
@@ -50,48 +60,75 @@ class lagou_python():
                                      headers=self.headers,
                                      proxies=self.proxies)
             response = response.json()
+            print "正在读取第"+str(i)+"页....."
             self.json_url(response)#json分析提取
+            print "第"+str(i)+"页结束........"
             i += 1
+        print "抓取完毕"
     
     def json_url(self,info):#json分析提取
         # url = "https://www.lagou.com/jobs/3272647.html"#职位url
         info = info["content"]["positionResult"]["result"]
         for id in info:
             # print type()
+            # time.sleep(0.5)
             info_1 = {}
+            
+            # 提取职位id
             position_id = id["positionId"]
             # print position_id # int
+            
+            # 提取公司名称
+            global company_name
             company_name = id["companyShortName"]
             company_name = company_name.encode("utf-8")
             # print company_name #str
             # info_1[company_name] = position_id#公司名与id字典配对
+            
+            #公司名列表
+            global company_name_list
             company_name_list = []
             company_name_list.append(company_name)
+            
+            #职位id列表
+            global position_id_list
             position_id_list = []
             position_id_list.append(position_id)
-            for url_id in position_id_list:
-                url_id = str(url_id)
-                url = "https://www.lagou.com/jobs/" + url_id + ".html"
-                # self.url_spider(url)
-    def url_spider(self):
-        # html = requests.get(url,headers = self.headers,proxies = self.proxies)
-        html = requests.get("https://www.lagou.com/jobs/3082277.html",headers =self.headers2,proxies = self.proxies).text
-        html = etree.HTML(html)
-        info = html.xpath('//dd[@class="job_bt"]/div/p')
-        for i in info:
-            print type(i)
-
-      
-        
+            
+            #对职位信息进行抓取
+            url = "https://www.lagou.com/jobs/" + str(position_id) + ".html"
+            self.url_spider(url)
+            # for url_id in position_id_list:
+            #     time.sleep(1)
+            #     url_id = str(url_id)
+            #     url = "https://www.lagou.com/jobs/" + url_id + ".html"
+            #     self.url_spider(url)
     
+    def url_spider(self,url):#对职业要求进行提取数据
+        # html = requests.get(url,headers = self.headers,proxies = self.proxies)
+        # html = requests.get("https://www.lagou.com/jobs/3082277.html",headers =self.headers2,proxies = self.proxies).text
+        html = requests.get(url,headers =self.headers2,proxies = self.proxies).text
+        html = etree.HTML(html)
+        job_info = html.xpath('//dd[@class="job_bt"]/div//text()')
+        job_text = html.xpath('/html/body/div[2]/div/div[1]/div/span/text()')
+        data = ""
+        for info in job_info:
+            time.sleep(0.2)
+            # print type(info)#<type 'lxml.etree._ElementUnicodeResult'>
+            data = data +"\n" + info
+        self.redis_w(company_name,data)
 
-# def write(self,key):
-#     with open("id.txt","ab") as f:
-#         f.write(key+":")
-
-
+    def redis_w(self,name,info):
+        print "正在录入"+name+"信息...."
+        data = StrictRedis()
+        data = data.set(name,info)
+        print name+"录入结束"
+    
+    def write(self,key):
+        with open("id.txt","ab") as f:
+            f.write(key)
 
 if __name__ == '__main__':
     run = lagou_python()
-    # run.spider_main()
-    run.url_spider()
+    run.spider_main()
+    # run.url_spider()
