@@ -70,19 +70,13 @@ class lagou_python():
         # url = "https://www.lagou.com/jobs/3272647.html"#职位url
         info = info["content"]["positionResult"]["result"]
         for id in info:
-            # print type()
-            # time.sleep(0.5)
-            info_1 = {}
-            
             # 提取职位id
-            position_id = id["positionId"]
-            # print position_id # int
-            
+            position_id = id["positionId"] #int
             # 提取公司名称
             global company_name
             company_name = id["companyShortName"]
-            company_name = company_name.encode("utf-8")
-            # print company_name #str
+            company_name = company_name.encode("utf-8") #str
+
             # info_1[company_name] = position_id#公司名与id字典配对
             
             #公司名列表
@@ -98,37 +92,28 @@ class lagou_python():
             #对职位信息进行抓取
             url = "https://www.lagou.com/jobs/" + str(position_id) + ".html"
             self.url_spider(url)
-            # for url_id in position_id_list:
-            #     time.sleep(1)
-            #     url_id = str(url_id)
-            #     url = "https://www.lagou.com/jobs/" + url_id + ".html"
-            #     self.url_spider(url)
     
     def url_spider(self,url):#对职业要求进行提取数据
-        # html = requests.get(url,headers = self.headers,proxies = self.proxies)
-        # html = requests.get("https://www.lagou.com/jobs/3082277.html",headers =self.headers2,proxies = self.proxies).text
+
         html = requests.get(url,headers =self.headers2,proxies = self.proxies).text
         html = etree.HTML(html)
+        #xpath提取数据
         job_info = html.xpath('//dd[@class="job_bt"]/div//text()')
-        job_text = html.xpath('/html/body/div[2]/div/div[1]/div/span/text()')
+        # job_text = html.xpath('/html/body/div[2]/div/div[1]/div/span/text()')
         data = ""
+        #整合职位要求data数据
         for info in job_info:
             time.sleep(0.2)
             # print type(info)#<type 'lxml.etree._ElementUnicodeResult'>
             data = data +"\n" + info
-        self.redis_w(company_name,data)
+        self.redis_w(company_name,data)# 传入redis数据库
 
     def redis_w(self,name,info):
         print "正在录入"+name+"信息...."
         data = StrictRedis()
-        data = data.set(name,info)
+        data.set(name,info)
         print name+"录入结束"
     
-    def write(self,key):
-        with open("id.txt","ab") as f:
-            f.write(key)
-
 if __name__ == '__main__':
     run = lagou_python()
     run.spider_main()
-    # run.url_spider()
